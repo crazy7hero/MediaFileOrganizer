@@ -1,0 +1,35 @@
+# Build output
+build/
+release/
+*.o
+*.obj
+*.exe
+moc_*.cpp
+moc_*.h
+qrc_*.cpp
+ui_*.h
+Makefile
+Makefile.Debug
+Makefile.Release
+.qmake.stash
+.qtc_clangd/
+
+# IDE
+*.user
+*.pro.user
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+$RECYCLE.BIN/
+
+# Qt Creator
+*.autosave
+
+# Claude
+.claude/
