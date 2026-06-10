@@ -66,6 +66,11 @@ cp MediaInfo.dll release/
 
 详见 [doc/用户手册.md](doc/用户手册.md)
 
+## 下载地址
+https://github.com/crazy7hero/MediaFileOrganizer/releases/download/v1.5.0/MediaFileOrganizer_v1.5.zip
+
+点链接直接下载，解压后双击 MediaFileOrganizer.exe 即可运行
+
 ## License
 
 MIT License
