@@ -1,5 +1,7 @@
 QT += core gui widgets
 
+TARGET = MediaFileOrganizer
+
 CONFIG += c++17
 QMAKE_CXXFLAGS += -std=c++17
 DEFINES += NOMINMAX
