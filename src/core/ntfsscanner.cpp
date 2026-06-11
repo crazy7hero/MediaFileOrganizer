@@ -200,7 +200,7 @@ QVector<FileEntry> NTFSScanner::fastScan(const QString& srcPath,
         // 直接打开失败 → 尝试获取备份权限再试
         enableBackupPrivilege();
         if (!openVolume(srcPath, vol)) {
-            if (errorMsg) *errorMsg = "无法访问卷设备: " + srcPath.left(2) + " (可尝试以管理员运行)";
+            if (errorMsg) *errorMsg = "NTFS快速扫描不可用 (无卷访问权限), 已回退普通扫描";
             return results;
         }
     }
