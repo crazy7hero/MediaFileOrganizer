@@ -205,6 +205,11 @@ QVector<FileEntry> NTFSScanner::fastScan(const QString& srcPath,
         }
     }
 
+    if (errorMsg) *errorMsg = QString("bpr=%1 bpc=%2 mftLcn=%3 totalRec=%4")
+                                  .arg(vol.bytesPerRecord).arg(vol.bytesPerCluster)
+                                  .arg(vol.mftStartLcn).arg(vol.totalRecords);
+    if (vol.totalRecords == 0 || vol.bytesPerRecord == 0) return results;
+
     // 限制扫描范围: 只处理 srcPath 下的文件
     QString scanDir = QDir::cleanPath(srcPath);
     if (!scanDir.endsWith('/') && !scanDir.endsWith('\\'))
