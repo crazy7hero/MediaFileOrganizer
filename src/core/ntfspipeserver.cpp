@@ -61,6 +61,7 @@ void NTFSPipeServer::run()
             CloseHandle(hPipe);
             continue;
         }
+        qDebug() << "[SVC] client connected";
 
         // ─── 读取请求 ───
         wchar_t buf[8192] = {};
@@ -94,8 +95,10 @@ void NTFSPipeServer::run()
         }
 
         // ─── 执行 NTFS 快速扫描 ───
-        enableBackupPrivilege(); // 确保能打开卷设备
+        enableBackupPrivilege();
+        qDebug() << "[SVC] scanning:" << rootPath << "filters:" << filters;
         QVector<FileEntry> results = NTFSScanner::fastScan(rootPath, filters);
+        qDebug() << "[SVC] result count:" << results.size();
 
         // ─── 返回结果 ───
         // COUNT:N\n

@@ -35,8 +35,18 @@ void FileScanner::scan(const QString& rootPath)
         return;
     }
 
+    bool isNtfs = NTFSScanner::isNTFS(rootPath);
+    bool pipeOk = NTFSPipeClient::isServiceRunning();
+
+    QMetaObject::invokeMethod(this, [this, rootPath, isNtfs, pipeOk]() {
+        emit scanError(QString("诊断: NTFS=%1 管道=%2 路径=%3")
+                           .arg(isNtfs ? "是" : "否")
+                           .arg(pipeOk ? "通" : "不通")
+                           .arg(rootPath));
+    }, Qt::QueuedConnection);
+
     // ─── NTFS 快速路径: 管道服务 > 直接 MFT ───
-    if (NTFSScanner::isNTFS(rootPath)) {
+    if (isNtfs) {
         // 1) 优先走管道服务 (无需管理员)
         QString diag;
         QVector<FileEntry> entries = NTFSPipeClient::scanViaPipe(rootPath, m_filters, &diag);
