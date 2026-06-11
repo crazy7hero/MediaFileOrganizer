@@ -40,6 +40,9 @@ void FileScanner::scan(const QString& rootPath)
         // 1) 优先走管道服务 (无需管理员)
         QVector<FileEntry> entries = NTFSPipeClient::scanViaPipe(rootPath, m_filters);
         if (!entries.isEmpty()) {
+            QMetaObject::invokeMethod(this, [this]() {
+                emit scanError("扫描模式: NTFS 快速扫描 (后台服务)");
+            }, Qt::QueuedConnection);
             const int BATCH_SIZE = 500;
             qint64 totalSize = 0;
             QVector<FileEntry> batch; batch.reserve(BATCH_SIZE);
@@ -58,7 +61,9 @@ void FileScanner::scan(const QString& rootPath)
         QString errMsg;
         entries = NTFSScanner::fastScan(rootPath, m_filters, &errMsg);
         if (!entries.isEmpty()) {
-            // 分批投递结果到 UI
+            QMetaObject::invokeMethod(this, [this]() {
+                emit scanError("扫描模式: NTFS 快速扫描 (直接读 MFT)");
+            }, Qt::QueuedConnection);
             const int BATCH_SIZE = 500;
             qint64 totalSize = 0;
             QVector<FileEntry> batch;
@@ -88,6 +93,9 @@ void FileScanner::scan(const QString& rootPath)
     }
 
     // ─── 慢速路径: QDirIterator 遍历 ───
+    QMetaObject::invokeMethod(this, [this]() {
+        emit scanError("扫描模式: 普通扫描 (QDirIterator)");
+    }, Qt::QueuedConnection);
     QDirIterator it(rootPath, m_filters, QDir::Files | QDir::Readable,
                     QDirIterator::Subdirectories | QDirIterator::FollowSymlinks);
 
