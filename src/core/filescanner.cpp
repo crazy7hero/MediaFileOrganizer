@@ -38,7 +38,8 @@ void FileScanner::scan(const QString& rootPath)
     // ─── NTFS 快速路径: 管道服务 > 直接 MFT ───
     if (NTFSScanner::isNTFS(rootPath)) {
         // 1) 优先走管道服务 (无需管理员)
-        QVector<FileEntry> entries = NTFSPipeClient::scanViaPipe(rootPath, m_filters);
+        QString diag;
+        QVector<FileEntry> entries = NTFSPipeClient::scanViaPipe(rootPath, m_filters, &diag);
         if (!entries.isEmpty()) {
             QMetaObject::invokeMethod(this, [this]() {
                 emit scanError("扫描模式: NTFS 快速扫描 (后台服务)");
@@ -58,6 +59,10 @@ void FileScanner::scan(const QString& rootPath)
         }
 
         // 2) 管道不通 → 尝试直接读 MFT (当前进程)
+        if (!diag.isEmpty())
+            QMetaObject::invokeMethod(this, [this, diag]() {
+                emit scanError("管道诊断: " + diag);
+            }, Qt::QueuedConnection);
         QString errMsg;
         entries = NTFSScanner::fastScan(rootPath, m_filters, &errMsg);
         if (!entries.isEmpty()) {

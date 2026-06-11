@@ -133,19 +133,21 @@ void NTFSPipeServer::run()
 // ═══════════════════════════════════════════════════════════════
 
 QVector<FileEntry> NTFSPipeClient::scanViaPipe(const QString& rootPath,
-                                                 const QStringList& filters)
+                                                 const QStringList& filters,
+                                                 QString* outDiag)
 {
     QVector<FileEntry> results;
     if (filters.isEmpty()) return results;
 
-    // 连接管道
     HANDLE hPipe = CreateFileW(
         MFO_PIPE_NAME,
         GENERIC_READ | GENERIC_WRITE,
         0, nullptr, OPEN_EXISTING, 0, nullptr);
 
-    if (hPipe == INVALID_HANDLE_VALUE)
-        return results; // 服务未运行
+    if (hPipe == INVALID_HANDLE_VALUE) {
+        if (outDiag) *outDiag = "管道连接失败 (服务未运行?)";
+        return results;
+    }
 
     // 设置超时
     DWORD mode = PIPE_READMODE_MESSAGE | PIPE_WAIT;

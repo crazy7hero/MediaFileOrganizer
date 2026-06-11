@@ -28,7 +28,8 @@ namespace NTFSPipeClient {
     // 通过管道连接服务端进行快速扫描
     // 成功返回文件列表, 失败返回空 (服务未运行/权限不足)
     QVector<FileEntry> scanViaPipe(const QString& rootPath,
-                                    const QStringList& filters);
+                                    const QStringList& filters,
+                                    QString* outDiag = nullptr);
 
     // 检测服务是否在运行
     bool isServiceRunning();
