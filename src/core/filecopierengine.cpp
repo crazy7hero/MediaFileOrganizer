@@ -74,9 +74,19 @@ void FileCopierEngine::start(const QStringList& sourceFiles,
         const QString& srcPath  = sourceFiles.at(i);
         const QFileInfo srcInfo(srcPath);
         const QString  fileName = srcInfo.fileName();
-        QString        dstPath  = destinationDir + "/" + fileName;
+        const QString  origDst  = destinationDir + "/" + fileName;
+
+        // ─── 跳过已存在 (必须在去重之前, 用原始文件名比对) ───
+        if (m_skipExisting) {
+            QFileInfo existCheck(origDst);
+            if (existCheck.exists() && existCheck.size() == sizeMap.value(srcPath, 0)) {
+                ++skipped;
+                continue;
+            }
+        }
 
         // ─── 去重 ───
+        QString dstPath = origDst;
         if (QFile::exists(dstPath)) {
             QString base    = srcInfo.baseName();
             QString suffix  = srcInfo.completeSuffix();
@@ -89,15 +99,6 @@ void FileCopierEngine::start(const QStringList& sourceFiles,
                     dstPath = destinationDir + "/" + base + "_" + QString::number(counter) + "." + suffix;
                 ++counter;
             } while (QFile::exists(dstPath) && counter < 10000);
-        }
-
-        // ─── 跳过已存在文件 (同名 + 同大小) ───
-        if (m_skipExisting) {
-            QFileInfo existCheck(dstPath);
-            if (existCheck.exists() && existCheck.size() == sizeMap.value(srcPath, 0)) {
-                ++skipped;
-                continue;
-            }
         }
 
         // ─── CopyFileEx: 支持回调 + 可中断 ───
