@@ -42,6 +42,16 @@ void NTFSPipeServer::run()
 {
     g_serverRunning = true;
 
+    // 安全描述符: 允许 Everyone 读写 (否则普通用户连不上 SYSTEM 建的管道)
+    SECURITY_DESCRIPTOR sd = {};
+    InitializeSecurityDescriptor(&sd, SECURITY_DESCRIPTOR_REVISION);
+    SetSecurityDescriptorDacl(&sd, TRUE, nullptr, FALSE); // NULL DACL = 全员可访问
+
+    SECURITY_ATTRIBUTES sa = {};
+    sa.nLength = sizeof(sa);
+    sa.lpSecurityDescriptor = &sd;
+    sa.bInheritHandle = FALSE;
+
     while (g_serverRunning) {
         HANDLE hPipe = CreateNamedPipeW(
             MFO_PIPE_NAME,
@@ -49,7 +59,7 @@ void NTFSPipeServer::run()
             PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
             PIPE_UNLIMITED_INSTANCES,
             PIPE_BUF_SIZE, PIPE_BUF_SIZE,
-            PIPE_TIMEOUT, nullptr);
+            PIPE_TIMEOUT, &sa);
 
         if (hPipe == INVALID_HANDLE_VALUE) {
             Sleep(1000);
