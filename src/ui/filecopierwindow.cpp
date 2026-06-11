@@ -1126,6 +1126,7 @@ void FileCopierWindow::onCopyStart()
     m_copyBtn->setVisible(false); m_cancelCopyBtn->setVisible(true);
     m_scanBtn->setEnabled(false);
     m_copyProgress->setVisible(true); m_copyProgress->setValue(0);
+    m_copyTimer.start();
     m_copyStatus->setText(QString("启动 %1 个任务...").arg(m_totalCopies));
     appendLog(QString("═══ 复制 %1 个文件 → %2 个目标 ═══")
                   .arg(QLocale().toString(m_snapshotFiles.size())).arg(m_totalCopies));
@@ -1156,11 +1157,25 @@ void FileCopierWindow::onCopyProgress(int pct, int copied, int failed,
                                        int total, qint64 bytes, const QString& dst)
 {
     m_copyProgress->setValue(pct);
+    // 速率 / 已用时间 / 预估剩余
+    qint64 elap = m_copyTimer.elapsed() / 1000;
+    QString speed, eta;
+    if (elap > 0 && bytes > 0) {
+        speed = formatSize((qint64)(bytes / (double)elap)) + "/s";
+        int done = copied + failed;
+        if (done > 0 && done < total) {
+            qint64 e = elap * (total - done) / done;
+            if (e >= 3600) eta = QString(" 约%1h%2m").arg(e/3600).arg((e%3600)/60);
+            else if (e >= 60) eta = QString(" 约%1m%2s").arg(e/60).arg(e%60);
+            else eta = QString(" 约%1s").arg(e);
+        }
+    }
+
     m_copyStatus->setText(
-        QString("[%1]  %2/%3  成功:%4  失败:%5  %6")
+        QString("[%1]  %2/%3  成功:%4  失败:%5  %6  %7%8")
             .arg(QFileInfo(dst).fileName().isEmpty() ? dst : QFileInfo(dst).fileName())
             .arg(copied + failed).arg(total).arg(copied).arg(failed)
-            .arg(formatSize(bytes)));
+            .arg(formatSize(bytes)).arg(speed).arg(eta));
 }
 
 void FileCopierWindow::onCopyFinished(int /*total*/, int success, int failed,

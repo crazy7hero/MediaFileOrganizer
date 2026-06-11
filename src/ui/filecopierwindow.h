@@ -11,6 +11,7 @@
 #include <QTableView>
 #include <QTextEdit>
 #include <QProgressBar>
+#include <QElapsedTimer>
 #include <QVBoxLayout>
 #include <QMap>
 #include "mediahelper.h"
@@ -166,6 +167,7 @@ private:
     int  m_totalCopies  = 0;
     int  m_totalSuccess = 0;
     int  m_totalFailed  = 0;
+    QElapsedTimer m_copyTimer;
 
     QStringList           m_snapshotFiles;
     QMap<QString, qint64> m_snapshotSizeMap;
