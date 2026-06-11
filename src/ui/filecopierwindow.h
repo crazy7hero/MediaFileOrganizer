@@ -156,6 +156,7 @@ private:
     QPushButton*    m_copyBtn       = nullptr;
     QPushButton*    m_cancelCopyBtn = nullptr;
     QProgressBar*   m_copyProgress  = nullptr;
+    QLabel*         m_copyTimeLabel = nullptr;
     QLabel*         m_copyStatus    = nullptr;
 
     // ─── UI: 日志 ───

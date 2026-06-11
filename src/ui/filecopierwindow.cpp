@@ -530,12 +530,19 @@ void FileCopierWindow::setupDestinationSection(QVBoxLayout* main)
     row->addWidget(m_copyBtn); row->addWidget(m_cancelCopyBtn);
     main->addLayout(row);
 
-    // 进度 (上下两行: 进度条在上, 文字在下)
+    // 进度
     QVBoxLayout* progBox = new QVBoxLayout();
-    progBox->setSpacing(2);
+    progBox->setSpacing(1);
+
+    // 总体用时标签
+    m_copyTimeLabel = new QLabel("", this);
+    m_copyTimeLabel->setStyleSheet("color:#333;font-size:11px;font-weight:bold;");
+    m_copyTimeLabel->setVisible(false);
+    progBox->addWidget(m_copyTimeLabel);
+
     m_copyProgress = new QProgressBar(this);
     m_copyProgress->setRange(0, 100); m_copyProgress->setValue(0);
-    m_copyProgress->setVisible(false); m_copyProgress->setMaximumHeight(12);
+    m_copyProgress->setVisible(false); m_copyProgress->setMaximumHeight(10);
     m_copyProgress->setTextVisible(false);
     m_copyStatus = new QLabel("", this);
     m_copyStatus->setStyleSheet("color:#666;font-size:11px;");
@@ -1140,6 +1147,8 @@ void FileCopierWindow::onCopyStart()
     m_scanBtn->setEnabled(false);
     m_copyProgress->setVisible(true); m_copyProgress->setValue(0);
     m_copyTimer.start();
+    m_copyTimeLabel->setVisible(true);
+    m_copyTimeLabel->setText("总耗时 --:--  约剩余 --:--");
     m_copyStatus->setText(QString("启动 %1 个任务...").arg(m_totalCopies));
     appendLog(QString("═══ 复制 %1 个文件 → %2 个目标 ═══")
                   .arg(QLocale().toString(m_snapshotFiles.size())).arg(m_totalCopies));
@@ -1170,7 +1179,26 @@ void FileCopierWindow::onCopyProgress(int pct, int copied, int failed,
                                        int total, qint64 bytes, const QString& dst)
 {
     m_copyProgress->setValue(pct);
-    // 速率 / 已用时间 / 预估剩余
+
+    // ─── 总体时间 ───
+    qint64 totalElap = m_copyTimer.elapsed() / 1000;
+    QString totalStr;
+    if      (totalElap >= 3600) totalStr = QString("总耗时 %1h%2m%3s").arg(totalElap/3600).arg((totalElap%3600)/60).arg(totalElap%60);
+    else if (totalElap >= 60)   totalStr = QString("总耗时 %1m%2s").arg(totalElap/60).arg(totalElap%60);
+    else                        totalStr = QString("总耗时 %1s").arg(totalElap);
+
+    // ─── 总体剩余 ───
+    int aggDone = m_totalSuccess + m_totalFailed;
+    int aggTotal = m_snapshotFiles.size() * m_totalCopies;
+    if (aggDone > 0 && aggDone < aggTotal && totalElap > 0) {
+        qint64 e = (qint64)totalElap * (aggTotal - aggDone) / aggDone;
+        if      (e >= 3600) totalStr += QString("  约剩余 %1h%2m").arg(e/3600).arg((e%3600)/60);
+        else if (e >= 60)   totalStr += QString("  约剩余 %1m%2s").arg(e/60).arg(e%60);
+        else                totalStr += QString("  约剩余 %1s").arg(e);
+    }
+    m_copyTimeLabel->setText(totalStr);
+
+    // ─── 单目标速率 ───
     qint64 elap = m_copyTimer.elapsed() / 1000;
     QString speed, eta;
     if (elap > 0 && bytes > 0) {
@@ -1178,9 +1206,9 @@ void FileCopierWindow::onCopyProgress(int pct, int copied, int failed,
         int done = copied + failed;
         if (done > 0 && done < total) {
             qint64 e = elap * (total - done) / done;
-            if (e >= 3600) eta = QString(" 约%1h%2m").arg(e/3600).arg((e%3600)/60);
-            else if (e >= 60) eta = QString(" 约%1m%2s").arg(e/60).arg(e%60);
-            else eta = QString(" 约%1s").arg(e);
+            if      (e >= 3600) eta = QString(" 约%1h%2m").arg(e/3600).arg((e%3600)/60);
+            else if (e >= 60)   eta = QString(" 约%1m%2s").arg(e/60).arg(e%60);
+            else                eta = QString(" 约%1s").arg(e);
         }
     }
 
@@ -1205,7 +1233,8 @@ void FileCopierWindow::onCopyFinished(int /*total*/, int success, int failed,
     if (m_activeCopies <= 0) {
         m_cancelCopyBtn->setVisible(false); m_copyBtn->setVisible(true);
         m_copyBtn->setEnabled(true); m_scanBtn->setEnabled(true);
-        m_copyProgress->setVisible(false); m_copyStatus->setText("");
+        m_copyProgress->setVisible(false); m_copyTimeLabel->setVisible(false);
+        m_copyStatus->setText("");
         appendLog("══════════════════════════════");
         appendLog(QString("全部完成! 成功:%1  失败:%2  目标:%3")
                       .arg(m_totalSuccess).arg(m_totalFailed).arg(m_totalCopies));
