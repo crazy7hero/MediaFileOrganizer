@@ -103,11 +103,10 @@ void NTFSPipeServer::run()
         std::wstring wDiag = diag.toStdWString();
         DWORD written = 0;
         WriteFile(hPipe, wDiag.c_str(), (DWORD)(wDiag.size() * 2), &written, nullptr);
-
-        // COUNT:N\n
+        (void)written;
         QString header = QString("COUNT:%1\n").arg(results.size());
         std::wstring wHeader = header.toStdWString();
-        DWORD written = 0;
+        written = 0;
         WriteFile(hPipe, wHeader.c_str(), (DWORD)(wHeader.size() * 2), &written, nullptr);
 
         // FILE:size|path\n  (分批写入, 每次 100 条)
