@@ -261,7 +261,7 @@ bool ServiceInstaller::install(const QString& exePath, QString* outError)
     return true;
 }
 
-bool ServiceInstaller::uninstall()
+bool ServiceInstaller::uninstall(QString* /*outError*/)
 {
     SC_HANDLE scm = OpenSCManagerW(nullptr, nullptr, SC_MANAGER_ALL_ACCESS);
     if (!scm) return false;
