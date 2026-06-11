@@ -1,6 +1,7 @@
 #include "filecopierwindow.h"
 #include "ntfspipeserver.h"
 #include <QApplication>
+#include <QCoreApplication>
 #include <QStyleFactory>
 #include <QMessageBox>
 #include <windows.h>
@@ -43,6 +44,8 @@ int main(int argc, char *argv[])
 {
     // ─── 服务模式 ───
     if (argc > 1 && qstrcmp(argv[1], "/service") == 0) {
+        // 服务需要 QCoreApplication 才能使用 Qt 类 (QString/QVector)
+        QCoreApplication svcApp(argc, argv);
         SERVICE_TABLE_ENTRYW table[] = {
             { (LPWSTR)L"MediaFileOrganizer", svcMain },
             { nullptr, nullptr }
