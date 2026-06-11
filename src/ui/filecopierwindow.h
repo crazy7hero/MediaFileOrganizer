@@ -162,7 +162,8 @@ private:
     QTextEdit*      m_logEdit       = nullptr;
 
     // ─── 状态 ───
-    bool m_scanning     = false;
+    bool m_scanning       = false;
+    bool m_extractingMeta = false;
     int  m_activeCopies = 0;
     int  m_totalCopies  = 0;
     int  m_totalSuccess = 0;

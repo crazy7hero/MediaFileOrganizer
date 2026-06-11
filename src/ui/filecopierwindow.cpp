@@ -807,6 +807,8 @@ void FileCopierWindow::onScanFinished(int total, qint64 size)
 
 void FileCopierWindow::startMetadataExtraction()
 {
+    m_extractingMeta = true;
+    updateCopyButtonState();
     appendLog("开始提取元数据（并行）...");
     m_scanStatus->setText("提取元数据中...");
     m_scanProgress->setVisible(true);
@@ -828,6 +830,7 @@ void FileCopierWindow::startMetadataExtraction()
     connect(wd, &QTimer::timeout, this, [this, processed, lastProcessed, wd, total]() {
         if (*processed == *lastProcessed && *processed < total) {
             wd->stop(); wd->deleteLater();
+            m_extractingMeta = false;
             m_scanProgress->setVisible(false);
             m_scanStatus->setText("");
             appendLog(QString("元数据提取结束: %1/%2 (剩余批次超时跳过)")
@@ -861,6 +864,8 @@ void FileCopierWindow::startMetadataExtraction()
 
                 if (*processed >= total) {
                     wd->stop(); wd->deleteLater();
+                    m_extractingMeta = false;
+                    updateCopyButtonState();
                     m_scanProgress->setVisible(false);
                     m_scanStatus->setText("");
                     int has = 0;
@@ -999,6 +1004,11 @@ void FileCopierWindow::onCopyStart()
 {
     QStringList dests = getDestinationPaths();
     if (dests.isEmpty()) { QMessageBox::warning(this, "提示", "请先添加目标。"); return; }
+
+    if (m_extractingMeta) {
+        QMessageBox::warning(this, "提示", "元数据提取尚未完成，请稍候再试。");
+        return;
+    }
 
     // 确定要复制的文件: 必须勾选
     QStringList filesToCopy = m_model->checkedFiles();
@@ -1550,7 +1560,7 @@ void FileCopierWindow::updateCopyButtonState()
 {
     bool hasFiles = m_model->fileCount() > 0;
     bool hasDest  = m_destList->count() > 0;
-    m_copyBtn->setEnabled(hasFiles && hasDest && !m_scanning && m_activeCopies == 0);
+    m_copyBtn->setEnabled(hasFiles && hasDest && !m_scanning && !m_extractingMeta && m_activeCopies == 0);
 }
 
 QString FileCopierWindow::formatSize(qint64 bytes) const
