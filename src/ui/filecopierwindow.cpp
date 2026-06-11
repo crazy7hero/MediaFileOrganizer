@@ -843,12 +843,12 @@ void FileCopierWindow::startMetadataExtraction()
             if (++(*stallCount) >= 6) {
                 wd->stop(); wd->deleteLater();
                 m_extractingMeta = false;
-                updateCopyButtonState();
                 m_scanProgress->setVisible(false);
                 m_scanStatus->setText("");
                 appendLog(QString("元数据提取结束: %1/%2 批 (部分文件阻塞, 已跳过)")
                               .arg(QLocale().toString(cur))
                               .arg(QLocale().toString(totalBatches)));
+                QTimer::singleShot(0, this, [this]() { updateCopyButtonState(); });
             }
         } else {
             *lastDone = cur;
@@ -879,7 +879,6 @@ void FileCopierWindow::startMetadataExtraction()
                 if (done >= totalBatches) {
                     wd->stop(); wd->deleteLater();
                     m_extractingMeta = false;
-                    updateCopyButtonState();
                     m_scanProgress->setVisible(false);
                     m_scanStatus->setText("");
                     int has = 0;
@@ -888,6 +887,8 @@ void FileCopierWindow::startMetadataExtraction()
                     appendLog(QString("元数据完成: %1/%2 个文件 (可解析)")
                                   .arg(QLocale().toString(has))
                                   .arg(QLocale().toString(total)));
+                    // 延迟一帧确保所有事件处理完毕再更新按钮
+                    QTimer::singleShot(0, this, [this]() { updateCopyButtonState(); });
                 }
             }, Qt::QueuedConnection);
         });
