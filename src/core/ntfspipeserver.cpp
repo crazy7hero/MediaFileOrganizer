@@ -106,10 +106,13 @@ void NTFSPipeServer::run()
 
         // ─── 执行 NTFS 快速扫描 ───
         enableBackupPrivilege();
-        QVector<FileEntry> results = NTFSScanner::fastScan(rootPath, filters);
+        QString errMsg;
+        QVector<FileEntry> results = NTFSScanner::fastScan(rootPath, filters, &errMsg);
 
         // ─── 返回结果 + 诊断 ───
-        QString diag = QString("DIAG:svc_scanned(%1 files)\n").arg(results.size());
+        QString diag = QString("DIAG:root=[%1] filters=[%2] ntfserr=[%3] count=%4\n")
+                           .arg(rootPath, filters.join(","), errMsg)
+                           .arg(results.size());
         std::wstring wDiag = diag.toStdWString();
         DWORD written = 0;
         WriteFile(hPipe, wDiag.c_str(), (DWORD)(wDiag.size() * 2), &written, nullptr);
