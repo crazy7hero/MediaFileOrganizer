@@ -16,6 +16,7 @@ SOURCES += \
     src/core/filescanner.cpp \
     src/core/machineinfo.cpp \
     src/core/mediahelper.cpp \
+    src/core/ntfsscanner.cpp \
     src/model/filelistmodel.cpp \
     src/ui/filecopierwindow.cpp \
     src/ui/main.cpp
@@ -27,6 +28,7 @@ HEADERS += \
     src/core/filescanner.h \
     src/core/machineinfo.h \
     src/core/mediahelper.h \
+    src/core/ntfsscanner.h \
     src/model/filelistmodel.h \
     src/model/metafilterproxymodel.h \
     src/thirdparty/MediaInfoDLL.h \

@@ -1,4 +1,5 @@
 #include "filescanner.h"
+#include "ntfsscanner.h"
 #include <QDirIterator>
 #include <QDir>
 #include <QFileInfo>
@@ -33,6 +34,36 @@ void FileScanner::scan(const QString& rootPath)
         return;
     }
 
+    // ─── NTFS 快速路径: 直接读 MFT ───
+    if (NTFSScanner::isNTFS(rootPath)) {
+        QVector<FileEntry> entries = NTFSScanner::fastScan(rootPath, m_filters);
+        if (!entries.isEmpty()) {
+            // 分批投递结果到 UI
+            const int BATCH_SIZE = 500;
+            qint64 totalSize = 0;
+            QVector<FileEntry> batch;
+            batch.reserve(BATCH_SIZE);
+
+            for (int i = 0; i < entries.size() && !isCancelled(); ++i) {
+                batch.append(entries[i]);
+                totalSize += entries[i].fileSize;
+                if (batch.size() >= BATCH_SIZE) {
+                    postBatch(batch);
+                    batch.clear(); batch.reserve(BATCH_SIZE);
+                }
+                if (i % 500 == 0) postProgress(i + 1);
+            }
+            if (!batch.isEmpty() && !isCancelled())
+                postBatch(batch);
+
+            postProgress(entries.size());
+            postFinished(entries.size(), totalSize);
+            return;
+        }
+        // MFT 扫描失败(权限不足/文件系统异常) → 回退到慢速扫描
+    }
+
+    // ─── 慢速路径: QDirIterator 遍历 ───
     QDirIterator it(rootPath, m_filters, QDir::Files | QDir::Readable,
                     QDirIterator::Subdirectories | QDirIterator::FollowSymlinks);
 
