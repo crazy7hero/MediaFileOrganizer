@@ -19,20 +19,7 @@
 #define FSCTL_GET_NTFS_FILE_RECORD CTL_CODE(FILE_DEVICE_FILE_SYSTEM, 30, METHOD_BUFFERED, FILE_ANY_ACCESS)
 #endif
 
-#ifndef NTFS_FILE_RECORD_INPUT_BUFFER
-typedef struct {
-    LARGE_INTEGER FileReferenceNumber; // 0-based MFT index
-} NTFS_FILE_RECORD_INPUT_BUFFER;
-#endif
-
-#ifndef NTFS_FILE_RECORD_OUTPUT_BUFFER
-typedef struct {
-    LARGE_INTEGER FileReferenceNumber;
-    DWORD FileRecordLength;
-    // BYTE FileRecordBuffer[1]; — variable length
-    BYTE FileRecordBuffer[4096]; // enough for 1KB record + padding
-} NTFS_FILE_RECORD_OUTPUT_BUFFER;
-#endif
+// NTFS_FILE_RECORD_INPUT_BUFFER / OUTPUT_BUFFER 已在 MinGW winioctl.h 中定义
 
 #ifndef SE_BACKUP_NAME
 #define SE_BACKUP_NAME L"SeBackupPrivilege"
