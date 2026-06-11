@@ -96,11 +96,14 @@ void NTFSPipeServer::run()
 
         // ─── 执行 NTFS 快速扫描 ───
         enableBackupPrivilege();
-        qDebug() << "[SVC] scanning:" << rootPath << "filters:" << filters;
         QVector<FileEntry> results = NTFSScanner::fastScan(rootPath, filters);
-        qDebug() << "[SVC] result count:" << results.size();
 
-        // ─── 返回结果 ───
+        // ─── 返回结果 + 诊断 ───
+        QString diag = QString("DIAG:svc_scanned(%1 files)\n").arg(results.size());
+        std::wstring wDiag = diag.toStdWString();
+        DWORD written = 0;
+        WriteFile(hPipe, wDiag.c_str(), (DWORD)(wDiag.size() * 2), &written, nullptr);
+
         // COUNT:N\n
         QString header = QString("COUNT:%1\n").arg(results.size());
         std::wstring wHeader = header.toStdWString();
@@ -187,7 +190,9 @@ QVector<FileEntry> NTFSPipeClient::scanViaPipe(const QString& rootPath,
         }
 
         for (const QString& line : lines) {
-            if (line.startsWith("COUNT:")) {
+            if (line.startsWith("DIAG:")) {
+                if (outDiag) *outDiag = line.mid(5);
+            } else if (line.startsWith("COUNT:")) {
                 fileCount = line.mid(6).toInt();
                 results.reserve(fileCount);
             } else if (line.startsWith("FILE:")) {
