@@ -15,6 +15,25 @@
 
 // NTFS_VOLUME_DATA_BUFFER 已在 MinGW winioctl.h 中定义
 
+#ifndef FSCTL_GET_NTFS_FILE_RECORD
+#define FSCTL_GET_NTFS_FILE_RECORD CTL_CODE(FILE_DEVICE_FILE_SYSTEM, 30, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#endif
+
+#ifndef NTFS_FILE_RECORD_INPUT_BUFFER
+typedef struct {
+    LARGE_INTEGER FileReferenceNumber; // 0-based MFT index
+} NTFS_FILE_RECORD_INPUT_BUFFER;
+#endif
+
+#ifndef NTFS_FILE_RECORD_OUTPUT_BUFFER
+typedef struct {
+    LARGE_INTEGER FileReferenceNumber;
+    DWORD FileRecordLength;
+    // BYTE FileRecordBuffer[1]; — variable length
+    BYTE FileRecordBuffer[4096]; // enough for 1KB record + padding
+} NTFS_FILE_RECORD_OUTPUT_BUFFER;
+#endif
+
 #ifndef SE_BACKUP_NAME
 #define SE_BACKUP_NAME L"SeBackupPrivilege"
 #endif
@@ -107,36 +126,27 @@ static bool openVolume(const QString& path, NtfsVolume& vol)
     vol.volumeRoot = path.left(2);
     vol.rootPath   = vol.volumeRoot + "\\";
 
-    // 先打开卷设备, 获取 NTFS 参数
     QString devPath = "\\\\.\\" + vol.volumeRoot;
-    HANDLE hVol = CreateFileW(reinterpret_cast<LPCWSTR>(devPath.utf16()),
-                              GENERIC_READ,
-                              FILE_SHARE_READ | FILE_SHARE_WRITE,
-                              nullptr, OPEN_EXISTING, 0, nullptr);
-    if (hVol == INVALID_HANDLE_VALUE)
+    vol.hVol = CreateFileW(reinterpret_cast<LPCWSTR>(devPath.utf16()),
+                           GENERIC_READ,
+                           FILE_SHARE_READ | FILE_SHARE_WRITE,
+                           nullptr, OPEN_EXISTING, 0, nullptr);
+    if (vol.hVol == INVALID_HANDLE_VALUE)
         return false;
 
     NTFS_VOLUME_DATA_BUFFER vb = {};
     DWORD bytesRet = 0;
-    if (!DeviceIoControl(hVol, FSCTL_GET_NTFS_VOLUME_DATA,
+    if (!DeviceIoControl(vol.hVol, FSCTL_GET_NTFS_VOLUME_DATA,
                          nullptr, 0, &vb, sizeof(vb), &bytesRet, nullptr)) {
-        CloseHandle(hVol);
+        CloseHandle(vol.hVol); vol.hVol = INVALID_HANDLE_VALUE;
         return false;
     }
-    CloseHandle(hVol);
 
     vol.bytesPerCluster = vb.BytesPerCluster;
     vol.bytesPerRecord  = vb.BytesPerFileRecordSegment;
     vol.mftStartLcn     = vb.MftStartLcn.QuadPart;
     vol.totalRecords    = vb.MftValidDataLength.QuadPart / vol.bytesPerRecord;
-
-    // 直接打开 $Mft 文件 (NTFS 驱动处理碎片, 无需手动定位)
-    QString mftPath = "\\\\.\\" + vol.volumeRoot + "\\$Mft";
-    vol.hVol = CreateFileW(reinterpret_cast<LPCWSTR>(mftPath.utf16()),
-                           GENERIC_READ,
-                           FILE_SHARE_READ | FILE_SHARE_WRITE,
-                           nullptr, OPEN_EXISTING, 0, nullptr);
-    return vol.hVol != INVALID_HANDLE_VALUE;
+    return true;
 }
 
 // ─── 遍历属性链查找指定类型 ───
@@ -231,27 +241,27 @@ QVector<FileEntry> NTFSScanner::fastScan(const QString& srcPath,
     if (wantedExts.isEmpty()) return results;
 
     // ─── 第一遍: 遍历所有 MFT 记录, 收集目录和文件 ───
-    QHash<uint64_t, DirInfo> dirMap;    // MFT ref → DirInfo
-    QVector<FileEntry> fileEntries;     // 匹配的文件
+    QHash<uint64_t, DirInfo> dirMap;
+    QVector<FileEntry> fileEntries;
 
-    DWORD bpr  = vol.bytesPerRecord;
-    std::vector<char> mftChunk;
-    mftChunk.resize(65536);
+    DWORD bpr = vol.bytesPerRecord;
+    std::vector<char> recordBuf;
+    recordBuf.resize(bpr + 1024);
 
-    // 直接顺序读 $Mft 文件 (NTFS 驱动已处理碎片)
-    ULONGLONG mftOffset = 0;
+    // 用 FSCTL_GET_NTFS_FILE_RECORD 逐条读 (NTFS 驱动定位, 无碎片问题)
     for (ULONGLONG i = 0; i < vol.totalRecords; ++i) {
-        if (i % 64 == 0) {
-            LARGE_INTEGER li; li.QuadPart = mftOffset;
-            SetFilePointerEx(vol.hVol, li, nullptr, FILE_BEGIN);
-            DWORD toRead = (i + 64 <= vol.totalRecords) ? 64 * bpr
-                          : (vol.totalRecords - i) * bpr;
-            DWORD read = 0;
-            ReadFile(vol.hVol, mftChunk.data(), toRead, &read, nullptr);
-            mftOffset += read;
-        }
+        NTFS_FILE_RECORD_INPUT_BUFFER inBuf;
+        inBuf.FileReferenceNumber.QuadPart = i;
 
-        const char* record = mftChunk.data() + (i % 64) * bpr;
+        DWORD bytesRet = 0;
+        if (!DeviceIoControl(vol.hVol, FSCTL_GET_NTFS_FILE_RECORD,
+                             &inBuf, sizeof(inBuf),
+                             recordBuf.data(), (DWORD)recordBuf.size(),
+                             &bytesRet, nullptr))
+            continue;
+
+        auto* out = reinterpret_cast<NTFS_FILE_RECORD_OUTPUT_BUFFER*>(recordBuf.data());
+        const char* record = reinterpret_cast<const char*>(out->FileRecordBuffer);
         const MftRecordHeader* hdr = reinterpret_cast<const MftRecordHeader*>(record);
 
         // 校验魔术字
