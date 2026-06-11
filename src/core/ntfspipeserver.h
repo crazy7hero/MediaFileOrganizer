@@ -38,8 +38,8 @@ namespace NTFSPipeClient {
 // ─── Windows 服务管理 ───
 namespace ServiceInstaller {
 
-    bool install(const QString& exePath);
-    bool uninstall();
+    bool install(const QString& exePath, QString* outError = nullptr);
+    bool uninstall(QString* outError = nullptr);
     bool isInstalled();
 
 } // namespace ServiceInstaller

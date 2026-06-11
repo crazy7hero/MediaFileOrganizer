@@ -56,12 +56,13 @@ int main(int argc, char *argv[])
     // ─── 安装服务 ───
     if (argc > 1 && qstrcmp(argv[1], "/install") == 0) {
         QString exePath = QApplication::applicationFilePath();
-        if (ServiceInstaller::install(exePath)) {
+        QString errMsg;
+        if (ServiceInstaller::install(exePath, &errMsg)) {
             QMessageBox::information(nullptr, "安装成功",
                 "NTFS 快速扫描服务已安装并启动。\n无需管理员即可快速扫描 NTFS 磁盘。");
         } else {
-            QMessageBox::warning(nullptr, "安装失败",
-                "无法安装服务。请以管理员身份运行此程序。");
+            QMessageBox::warning(nullptr, "安装失败", errMsg.isEmpty() ?
+                "无法安装服务。请以管理员身份运行此程序。" : errMsg);
         }
         return 0;
     }

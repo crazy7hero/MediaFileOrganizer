@@ -206,15 +206,14 @@ bool NTFSPipeClient::isServiceRunning()
 
 static const wchar_t* SVC_NAME = L"MediaFileOrganizer";
 
-bool ServiceInstaller::install(const QString& exePath)
+bool ServiceInstaller::install(const QString& exePath, QString* outError)
 {
     QString nativePath = QDir::toNativeSeparators(exePath);
     std::wstring wPath = (nativePath + " /service").toStdWString();
 
     SC_HANDLE scm = OpenSCManagerW(nullptr, nullptr, SC_MANAGER_CREATE_SERVICE);
     if (!scm) {
-        DWORD err = GetLastError();
-        qWarning() << "OpenSCManager failed:" << err;
+        if (outError) *outError = QString("OpenSCManager 失败 (错误 %1)\n请确认以管理员身份运行").arg(GetLastError());
         return false;
     }
 
@@ -229,12 +228,15 @@ bool ServiceInstaller::install(const QString& exePath)
 
     DWORD err = GetLastError();
     if (!svc) {
-        // 服务已存在不算失败
         if (err == ERROR_SERVICE_EXISTS) {
             svc = OpenServiceW(scm, SVC_NAME, SERVICE_ALL_ACCESS);
-        }
-        if (!svc) {
-            qWarning() << "CreateService failed:" << err;
+            if (!svc) {
+                if (outError) *outError = "服务已存在但无法打开, 请先 /uninstall";
+                CloseServiceHandle(scm);
+                return false;
+            }
+        } else {
+            if (outError) *outError = QString("CreateService 失败 (错误 %1)\n路径: %2").arg(err).arg(nativePath);
             CloseServiceHandle(scm);
             return false;
         }
@@ -244,11 +246,13 @@ bool ServiceInstaller::install(const QString& exePath)
     desc.lpDescription = (LPWSTR)L"为 MediaFileOrganizer 提供 NTFS 快速扫描服务";
     ChangeServiceConfig2W(svc, SERVICE_CONFIG_DESCRIPTION, &desc);
 
-    // 启动服务
     if (!StartServiceW(svc, 0, nullptr)) {
         DWORD startErr = GetLastError();
         if (startErr != ERROR_SERVICE_ALREADY_RUNNING) {
-            qWarning() << "StartService failed:" << startErr;
+            if (outError) *outError = QString("启动服务失败 (错误 %1)").arg(startErr);
+            CloseServiceHandle(svc);
+            CloseServiceHandle(scm);
+            return false;
         }
     }
 
