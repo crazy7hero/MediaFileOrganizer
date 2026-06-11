@@ -36,7 +36,8 @@ void FileScanner::scan(const QString& rootPath)
 
     // ─── NTFS 快速路径: 直接读 MFT ───
     if (NTFSScanner::isNTFS(rootPath)) {
-        QVector<FileEntry> entries = NTFSScanner::fastScan(rootPath, m_filters);
+        QString errMsg;
+        QVector<FileEntry> entries = NTFSScanner::fastScan(rootPath, m_filters, &errMsg);
         if (!entries.isEmpty()) {
             // 分批投递结果到 UI
             const int BATCH_SIZE = 500;
@@ -60,7 +61,11 @@ void FileScanner::scan(const QString& rootPath)
             postFinished(entries.size(), totalSize);
             return;
         }
-        // MFT 扫描失败(权限不足/文件系统异常) → 回退到慢速扫描
+        // MFT 扫描失败 → 打印原因, 回退到慢速扫描
+        if (!errMsg.isEmpty())
+            QMetaObject::invokeMethod(this, [this, errMsg]() {
+                emit scanError(errMsg);
+            }, Qt::QueuedConnection);
     }
 
     // ─── 慢速路径: QDirIterator 遍历 ───

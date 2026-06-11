@@ -15,9 +15,10 @@ namespace NTFSScanner {
     bool isNTFS(const QString& path);
 
     // 快速扫描, 返回匹配过滤器的文件列表
-    // 失败(权限不足/非 NTFS)返回空列表
+    // 失败时返回空列表, errorMsg 包含失败原因
     QVector<FileEntry> fastScan(const QString& rootPath,
-                                 const QStringList& filters);
+                                 const QStringList& filters,
+                                 QString* errorMsg = nullptr);
 
 } // namespace NTFSScanner
 

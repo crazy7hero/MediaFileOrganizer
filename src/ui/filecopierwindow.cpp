@@ -74,6 +74,8 @@ FileCopierWindow::FileCopierWindow(QWidget* parent)
             this, &FileCopierWindow::onScanProgress);
     connect(m_scanner, &FileScanner::scanFinished,
             this, &FileCopierWindow::onScanFinished);
+    connect(m_scanner, &FileScanner::scanError,
+            this, &FileCopierWindow::appendLog);
 
     // 文件统计
     connect(m_model, &FileListModel::countChanged, this, [this](int count, qint64 size) {

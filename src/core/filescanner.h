@@ -42,6 +42,9 @@ signals:
     // 扫描完成
     void scanFinished(int totalFiles, qint64 totalSize);
 
+    // 扫描错误/警告
+    void scanError(const QString& message);
+
 private:
     // 从工作线程投递信号到 UI 线程
     void postBatch(const QVector<FileEntry>& batch);

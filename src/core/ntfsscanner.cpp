@@ -188,17 +188,24 @@ bool NTFSScanner::isNTFS(const QString& path)
 
 // ─── 快速扫描 ───
 QVector<FileEntry> NTFSScanner::fastScan(const QString& srcPath,
-                                           const QStringList& filters)
+                                           const QStringList& filters,
+                                           QString* errorMsg)
 {
     QVector<FileEntry> results;
     if (filters.isEmpty()) return results;
 
     // 权限
-    enableBackupPrivilege();
+    if (!enableBackupPrivilege()) {
+        if (errorMsg) *errorMsg = "权限不足: 无法获取 SeBackupPrivilege (需要管理员权限)";
+        return results;
+    }
 
     // 打开卷
     NtfsVolume vol;
-    if (!openVolume(srcPath, vol)) return results;
+    if (!openVolume(srcPath, vol)) {
+        if (errorMsg) *errorMsg = "无法打开卷设备: " + srcPath.left(2);
+        return results;
+    }
 
     // 限制扫描范围: 只处理 srcPath 下的文件
     QString scanDir = QDir::cleanPath(srcPath);
