@@ -804,8 +804,8 @@ void FileCopierWindow::onScanFinished(int total, qint64 size)
                   .arg(QLocale().toString(total)).arg(formatSize(size)));
     updateCopyButtonState();
 
-    // 自动开始提取元数据
-    if (total > 0) startMetadataExtraction();
+    // 仅首次触发, 避免多路径导致重复提取
+    if (total > 0 && !m_extractingMeta) startMetadataExtraction();
 }
 
 // ═══════════════════════════════════════════════════════════════
