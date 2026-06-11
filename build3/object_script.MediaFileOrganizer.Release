@@ -1,0 +1,15 @@
+release/diskinfo.o
+release/filecopierengine.o
+release/filescanner.o
+release/machineinfo.o
+release/mediahelper.o
+release/ntfsscanner.o
+release/ntfspipeserver.o
+release/filelistmodel.o
+release/filecopierwindow.o
+release/main.o
+release/moc_filecopierengine.o
+release/moc_filescanner.o
+release/moc_filelistmodel.o
+release/moc_metafilterproxymodel.o
+release/moc_filecopierwindow.o

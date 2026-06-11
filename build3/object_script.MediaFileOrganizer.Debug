@@ -1,0 +1,15 @@
+debug/diskinfo.o
+debug/filecopierengine.o
+debug/filescanner.o
+debug/machineinfo.o
+debug/mediahelper.o
+debug/ntfsscanner.o
+debug/ntfspipeserver.o
+debug/filelistmodel.o
+debug/filecopierwindow.o
+debug/main.o
+debug/moc_filecopierengine.o
+debug/moc_filescanner.o
+debug/moc_filelistmodel.o
+debug/moc_metafilterproxymodel.o
+debug/moc_filecopierwindow.o
