@@ -233,6 +233,13 @@ void FileCopierWindow::setupSourceSection(QVBoxLayout* main)
     m_cancelScanBtn->setStyleSheet("QPushButton{background:#f44336;color:white;font-weight:bold;"
                                     "padding:4px 16px;border-radius:4px;}QPushButton:hover{background:#d32f2f;}");
     row->addWidget(m_scanBtn); row->addWidget(m_cancelScanBtn);
+
+    m_extractMetaCb = new QCheckBox("提取元数据", this);
+    m_extractMetaCb->setChecked(true);
+    m_extractMetaCb->setToolTip("扫描后自动提取媒体分辨率/时长/编码");
+    m_extractMetaCb->setStyleSheet("font-size:11px;color:#555;");
+    row->addWidget(m_extractMetaCb);
+
     main->addLayout(row);
 
     // 筛选栏
@@ -644,6 +651,7 @@ void FileCopierWindow::loadSettings()
 
     m_skipExistingCb->setChecked(s.value("Options/SkipExisting", false).toBool());
     m_preserveTsCb->setChecked(s.value("Options/PreserveTimestamp", true).toBool());
+    m_extractMetaCb->setChecked(s.value("Options/ExtractMeta", true).toBool());
 
     QString flt = s.value("Options/Filter").toString();
     if (!flt.isEmpty()) {
@@ -682,6 +690,7 @@ void FileCopierWindow::saveSettings()
 
     s.setValue("Options/SkipExisting",      m_skipExistingCb->isChecked());
     s.setValue("Options/PreserveTimestamp", m_preserveTsCb->isChecked());
+    s.setValue("Options/ExtractMeta",       m_extractMetaCb->isChecked());
     QLineEdit* fe = findChild<QLineEdit*>();
     if (fe) s.setValue("Options/Filter", fe->text());
 }
@@ -804,8 +813,8 @@ void FileCopierWindow::onScanFinished(int total, qint64 size)
                   .arg(QLocale().toString(total)).arg(formatSize(size)));
     updateCopyButtonState();
 
-    // 仅首次触发, 避免多路径导致重复提取
-    if (total > 0 && !m_extractingMeta) startMetadataExtraction();
+    if (total > 0 && !m_extractingMeta && m_extractMetaCb->isChecked())
+        startMetadataExtraction();
 }
 
 // ═══════════════════════════════════════════════════════════════

@@ -125,6 +125,7 @@ private:
     QPushButton*    m_autoSrcBtn    = nullptr;
     QPushButton*    m_scanBtn       = nullptr;
     QPushButton*    m_cancelScanBtn = nullptr;
+    QCheckBox*      m_extractMetaCb = nullptr;
     QPushButton*    m_exportBtn     = nullptr;
     QProgressBar*   m_scanProgress  = nullptr;
     QLabel*         m_scanStatus    = nullptr;
