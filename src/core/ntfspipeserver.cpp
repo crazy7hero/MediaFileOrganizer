@@ -4,6 +4,22 @@
 #include <QDir>
 #include <QDebug>
 
+// ─── 获取卷访问权限 ───
+static bool enableBackupPrivilege()
+{
+    HANDLE hToken;
+    if (!OpenProcessToken(GetCurrentProcess(),
+                          TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken))
+        return false;
+    TOKEN_PRIVILEGES tp;
+    LookupPrivilegeValueW(nullptr, SE_BACKUP_NAME, &tp.Privileges[0].Luid);
+    tp.PrivilegeCount = 1;
+    tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+    BOOL ok = AdjustTokenPrivileges(hToken, FALSE, &tp, sizeof(tp), nullptr, nullptr);
+    CloseHandle(hToken);
+    return ok && GetLastError() == ERROR_SUCCESS;
+}
+
 // ═══════════════════════════════════════════════════════════════
 // 管道协议常量
 // ═══════════════════════════════════════════════════════════════
@@ -78,6 +94,7 @@ void NTFSPipeServer::run()
         }
 
         // ─── 执行 NTFS 快速扫描 ───
+        enableBackupPrivilege(); // 确保能打开卷设备
         QVector<FileEntry> results = NTFSScanner::fastScan(rootPath, filters);
 
         // ─── 返回结果 ───
