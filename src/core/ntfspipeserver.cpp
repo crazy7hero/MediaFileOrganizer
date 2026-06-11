@@ -228,13 +228,8 @@ done:
 
 bool NTFSPipeClient::isServiceRunning()
 {
-    HANDLE hPipe = CreateFileW(MFO_PIPE_NAME, GENERIC_READ,
-                                0, nullptr, OPEN_EXISTING, 0, nullptr);
-    if (hPipe != INVALID_HANDLE_VALUE) {
-        CloseHandle(hPipe);
-        return true;
-    }
-    return false;
+    // WaitNamedPipe 只检测不连接, 不占用管道实例
+    return WaitNamedPipeW(MFO_PIPE_NAME, 100) != 0;
 }
 
 // ═══════════════════════════════════════════════════════════════
