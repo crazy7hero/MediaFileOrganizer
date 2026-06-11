@@ -104,30 +104,39 @@ static bool enableBackupPrivilege()
 // ─── 打开 NTFS 卷, 读取参数 ───
 static bool openVolume(const QString& path, NtfsVolume& vol)
 {
-    vol.volumeRoot = path.left(2);           // "D:"
+    vol.volumeRoot = path.left(2);
     vol.rootPath   = vol.volumeRoot + "\\";
 
+    // 先打开卷设备, 获取 NTFS 参数
     QString devPath = "\\\\.\\" + vol.volumeRoot;
-    vol.hVol = CreateFileW(reinterpret_cast<LPCWSTR>(devPath.utf16()),
-                           GENERIC_READ,
-                           FILE_SHARE_READ | FILE_SHARE_WRITE,
-                           nullptr, OPEN_EXISTING, 0, nullptr);
-    if (vol.hVol == INVALID_HANDLE_VALUE)
+    HANDLE hVol = CreateFileW(reinterpret_cast<LPCWSTR>(devPath.utf16()),
+                              GENERIC_READ,
+                              FILE_SHARE_READ | FILE_SHARE_WRITE,
+                              nullptr, OPEN_EXISTING, 0, nullptr);
+    if (hVol == INVALID_HANDLE_VALUE)
         return false;
 
     NTFS_VOLUME_DATA_BUFFER vb = {};
     DWORD bytesRet = 0;
-    if (!DeviceIoControl(vol.hVol, FSCTL_GET_NTFS_VOLUME_DATA,
+    if (!DeviceIoControl(hVol, FSCTL_GET_NTFS_VOLUME_DATA,
                          nullptr, 0, &vb, sizeof(vb), &bytesRet, nullptr)) {
-        CloseHandle(vol.hVol); vol.hVol = INVALID_HANDLE_VALUE;
+        CloseHandle(hVol);
         return false;
     }
+    CloseHandle(hVol);
 
     vol.bytesPerCluster = vb.BytesPerCluster;
     vol.bytesPerRecord  = vb.BytesPerFileRecordSegment;
     vol.mftStartLcn     = vb.MftStartLcn.QuadPart;
     vol.totalRecords    = vb.MftValidDataLength.QuadPart / vol.bytesPerRecord;
-    return true;
+
+    // 直接打开 $Mft 文件 (NTFS 驱动处理碎片, 无需手动定位)
+    QString mftPath = "\\\\.\\" + vol.volumeRoot + "\\$Mft";
+    vol.hVol = CreateFileW(reinterpret_cast<LPCWSTR>(mftPath.utf16()),
+                           GENERIC_READ,
+                           FILE_SHARE_READ | FILE_SHARE_WRITE,
+                           nullptr, OPEN_EXISTING, 0, nullptr);
+    return vol.hVol != INVALID_HANDLE_VALUE;
 }
 
 // ─── 遍历属性链查找指定类型 ───
@@ -226,24 +235,20 @@ QVector<FileEntry> NTFSScanner::fastScan(const QString& srcPath,
     QVector<FileEntry> fileEntries;     // 匹配的文件
 
     DWORD bpr  = vol.bytesPerRecord;
-    DWORD bpc  = vol.bytesPerCluster;
-    ULONGLONG start = vol.mftStartLcn;
-    std::vector<char> buf;
-
-    // 预读 MFT: 一次读 64KB (64 记录) 减少系统调用
     std::vector<char> mftChunk;
     mftChunk.resize(65536);
 
+    // 直接顺序读 $Mft 文件 (NTFS 驱动已处理碎片)
+    ULONGLONG mftOffset = 0;
     for (ULONGLONG i = 0; i < vol.totalRecords; ++i) {
-        // 每 64 条记录重新定位一次
         if (i % 64 == 0) {
-            ULONGLONG offset = start * bpc + i * bpr;
-            LARGE_INTEGER li; li.QuadPart = offset;
+            LARGE_INTEGER li; li.QuadPart = mftOffset;
             SetFilePointerEx(vol.hVol, li, nullptr, FILE_BEGIN);
             DWORD toRead = (i + 64 <= vol.totalRecords) ? 64 * bpr
                           : (vol.totalRecords - i) * bpr;
             DWORD read = 0;
             ReadFile(vol.hVol, mftChunk.data(), toRead, &read, nullptr);
+            mftOffset += read;
         }
 
         const char* record = mftChunk.data() + (i % 64) * bpr;
