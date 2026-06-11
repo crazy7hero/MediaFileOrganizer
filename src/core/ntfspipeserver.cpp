@@ -1,6 +1,7 @@
 #include "ntfspipeserver.h"
 #include "ntfsscanner.h"
 #include <windows.h>
+#include <QDir>
 #include <QDebug>
 
 // ═══════════════════════════════════════════════════════════════
@@ -207,32 +208,49 @@ static const wchar_t* SVC_NAME = L"MediaFileOrganizer";
 
 bool ServiceInstaller::install(const QString& exePath)
 {
-    std::wstring wPath = QString("\"%1\" /service").arg(exePath).toStdWString();
+    QString nativePath = QDir::toNativeSeparators(exePath);
+    std::wstring wPath = (nativePath + " /service").toStdWString();
 
     SC_HANDLE scm = OpenSCManagerW(nullptr, nullptr, SC_MANAGER_CREATE_SERVICE);
-    if (!scm) return false;
+    if (!scm) {
+        DWORD err = GetLastError();
+        qWarning() << "OpenSCManager failed:" << err;
+        return false;
+    }
 
     SC_HANDLE svc = CreateServiceW(
         scm, SVC_NAME, L"Media File Organizer",
         SERVICE_ALL_ACCESS,
         SERVICE_WIN32_OWN_PROCESS,
-        SERVICE_AUTO_START,           // 开机自动启动
+        SERVICE_AUTO_START,
         SERVICE_ERROR_NORMAL,
         wPath.c_str(),
         nullptr, nullptr, nullptr, nullptr, nullptr);
 
+    DWORD err = GetLastError();
     if (!svc) {
-        CloseServiceHandle(scm);
-        return false;
+        // 服务已存在不算失败
+        if (err == ERROR_SERVICE_EXISTS) {
+            svc = OpenServiceW(scm, SVC_NAME, SERVICE_ALL_ACCESS);
+        }
+        if (!svc) {
+            qWarning() << "CreateService failed:" << err;
+            CloseServiceHandle(scm);
+            return false;
+        }
     }
 
-    // 设置描述
     SERVICE_DESCRIPTIONW desc = {};
     desc.lpDescription = (LPWSTR)L"为 MediaFileOrganizer 提供 NTFS 快速扫描服务";
     ChangeServiceConfig2W(svc, SERVICE_CONFIG_DESCRIPTION, &desc);
 
     // 启动服务
-    StartServiceW(svc, 0, nullptr);
+    if (!StartServiceW(svc, 0, nullptr)) {
+        DWORD startErr = GetLastError();
+        if (startErr != ERROR_SERVICE_ALREADY_RUNNING) {
+            qWarning() << "StartService failed:" << startErr;
+        }
+    }
 
     CloseServiceHandle(svc);
     CloseServiceHandle(scm);
