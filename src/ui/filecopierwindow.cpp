@@ -530,16 +530,18 @@ void FileCopierWindow::setupDestinationSection(QVBoxLayout* main)
     row->addWidget(m_copyBtn); row->addWidget(m_cancelCopyBtn);
     main->addLayout(row);
 
-    // 进度
-    QHBoxLayout* progRow = new QHBoxLayout();
+    // 进度 (上下两行: 进度条在上, 文字在下)
+    QVBoxLayout* progBox = new QVBoxLayout();
+    progBox->setSpacing(2);
     m_copyProgress = new QProgressBar(this);
     m_copyProgress->setRange(0, 100); m_copyProgress->setValue(0);
-    m_copyProgress->setVisible(false); m_copyProgress->setMaximumHeight(14);
+    m_copyProgress->setVisible(false); m_copyProgress->setMaximumHeight(12);
+    m_copyProgress->setTextVisible(false);
     m_copyStatus = new QLabel("", this);
     m_copyStatus->setStyleSheet("color:#666;font-size:11px;");
-    progRow->addWidget(m_copyProgress, 1);
-    progRow->addWidget(m_copyStatus);
-    main->addLayout(progRow);
+    progBox->addWidget(m_copyProgress);
+    progBox->addWidget(m_copyStatus);
+    main->addLayout(progBox);
 
     connect(m_addDestBtn, &QPushButton::clicked, this, &FileCopierWindow::onAddDestPath);
     connect(m_autoDestBtn, &QPushButton::clicked, this, &FileCopierWindow::onAutoDetectDestinations);
@@ -1172,7 +1174,7 @@ void FileCopierWindow::onCopyProgress(int pct, int copied, int failed,
     }
 
     m_copyStatus->setText(
-        QString("[%1]  %2/%3  成功:%4  失败:%5  %6  %7%8")
+        QString("[%1] %2/%3  成功%4 失败%5  %6  %7%8")
             .arg(QFileInfo(dst).fileName().isEmpty() ? dst : QFileInfo(dst).fileName())
             .arg(copied + failed).arg(total).arg(copied).arg(failed)
             .arg(formatSize(bytes)).arg(speed).arg(eta));
