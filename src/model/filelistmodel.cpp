@@ -157,11 +157,21 @@ bool FileListModel::setData(const QModelIndex& idx, const QVariant& v, int role)
 void FileListModel::addFiles(const QVector<FileEntry>& entries)
 {
     if (entries.isEmpty()) return;
-    int old = m_entries.size();
-    beginInsertRows(QModelIndex(), old, old + entries.size() - 1);
-    m_entries.reserve(old + entries.size());
-    m_pathToRow.reserve(old + entries.size());
+
+    // 先去重, 算实际新增数
+    QVector<FileEntry> uniq;
+    uniq.reserve(entries.size());
     for (const auto& e : entries) {
+        if (!m_pathToRow.contains(e.filePath))
+            uniq.append(e);
+    }
+    if (uniq.isEmpty()) return;
+
+    int old = m_entries.size();
+    beginInsertRows(QModelIndex(), old, old + uniq.size() - 1);
+    m_entries.reserve(old + uniq.size());
+    m_pathToRow.reserve(old + uniq.size());
+    for (const auto& e : uniq) {
         m_pathToRow[e.filePath] = m_entries.size();
         m_entries.append(e);
         m_totalSize += e.fileSize;
