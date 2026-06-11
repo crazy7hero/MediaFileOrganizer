@@ -82,8 +82,9 @@ private slots:
     void onTableDoubleClicked(const QModelIndex& index);
     void onTableContextMenu(const QPoint& pos);
 
-    // 导出
+    // 导出 / 服务
     void onExport();
+    void onManageService();
     void appendLog(const QString& msg);
 
 private:

@@ -5,6 +5,7 @@
 #include "filecopierengine.h"
 #include "diskinfo.h"
 #include "mediahelper.h"
+#include "ntfspipeserver.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -576,7 +577,16 @@ void FileCopierWindow::setupLogSection(QVBoxLayout* main)
     toggleLog->setFlat(true); toggleLog->setCursor(Qt::PointingHandCursor);
     toggleLog->setStyleSheet("QPushButton{font-weight:bold;font-size:11px;color:#555;"
                               "padding:2px 6px;border:none;}");
-    header->addWidget(toggleLog); header->addStretch();
+    header->addWidget(toggleLog);
+
+    QPushButton* btnSvc = new QPushButton("⚡ 安装快速扫描", this);
+    btnSvc->setFlat(true); btnSvc->setCursor(Qt::PointingHandCursor);
+    btnSvc->setStyleSheet("QPushButton{font-size:11px;color:#1976D2;padding:2px 8px;border:none;}"
+                           "QPushButton:hover{color:#0D47A1;}");
+    connect(btnSvc, &QPushButton::clicked, this, &FileCopierWindow::onManageService);
+    header->addWidget(btnSvc);
+
+    header->addStretch();
     main->addLayout(header);
 
     m_logEdit = new QTextEdit(this);
@@ -1594,6 +1604,39 @@ void FileCopierWindow::saveScheme(const QString& name)
     s.setValue(prefix + "TypeFilterIdx",      m_typeFilterCombo->currentIndex());
     QLineEdit* fe = findChild<QLineEdit*>();
     if (fe) s.setValue(prefix + "Filter", fe->text());
+}
+
+void FileCopierWindow::onManageService()
+{
+    if (NTFSPipeClient::isServiceRunning()) {
+        appendLog("快速扫描服务正在运行中");
+        return;
+    }
+
+    if (ServiceInstaller::isInstalled()) {
+        appendLog("服务已安装但未运行，尝试启动...");
+        QMessageBox::information(this, "提示",
+            "服务已安装但未运行。\n"
+            "请以管理员身份运行:\n"
+            "  sc start MediaFileOrganizer");
+        return;
+    }
+
+    // 尝试安装
+    QString exePath = QApplication::applicationFilePath();
+    QString errMsg;
+    if (ServiceInstaller::install(exePath, &errMsg)) {
+        appendLog("快速扫描服务安装成功！NTFS 磁盘扫描速度将大幅提升。");
+        QMessageBox::information(this, "安装成功",
+            "NTFS 快速扫描服务已安装并启动。\n\n"
+            "之后扫描 NTFS 磁盘时自动使用快速模式，\n"
+            "无需管理员权限，速度提升 10-100 倍。");
+    } else {
+        appendLog("服务安装失败: " + errMsg);
+        QMessageBox::warning(this, "安装失败",
+            errMsg + "\n\n"
+            "请右键以管理员身份运行此程序，再点击该按钮。");
+    }
 }
 
 void FileCopierWindow::appendLog(const QString& msg)
