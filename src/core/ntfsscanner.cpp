@@ -194,17 +194,15 @@ QVector<FileEntry> NTFSScanner::fastScan(const QString& srcPath,
     QVector<FileEntry> results;
     if (filters.isEmpty()) return results;
 
-    // 权限
-    if (!enableBackupPrivilege()) {
-        if (errorMsg) *errorMsg = "权限不足: 无法获取 SeBackupPrivilege (需要管理员权限)";
-        return results;
-    }
-
-    // 打开卷
+    // 先尝试直接打开卷 (不需要特殊权限)
     NtfsVolume vol;
     if (!openVolume(srcPath, vol)) {
-        if (errorMsg) *errorMsg = "无法打开卷设备: " + srcPath.left(2);
-        return results;
+        // 直接打开失败 → 尝试获取备份权限再试
+        enableBackupPrivilege();
+        if (!openVolume(srcPath, vol)) {
+            if (errorMsg) *errorMsg = "无法访问卷设备: " + srcPath.left(2) + " (可尝试以管理员运行)";
+            return results;
+        }
     }
 
     // 限制扫描范围: 只处理 srcPath 下的文件
