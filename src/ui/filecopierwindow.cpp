@@ -831,6 +831,7 @@ void FileCopierWindow::startMetadataExtraction()
         if (*processed == *lastProcessed && *processed < total) {
             wd->stop(); wd->deleteLater();
             m_extractingMeta = false;
+            updateCopyButtonState();
             m_scanProgress->setVisible(false);
             m_scanStatus->setText("");
             appendLog(QString("元数据提取结束: %1/%2 (剩余批次超时跳过)")
