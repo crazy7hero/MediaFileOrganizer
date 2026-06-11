@@ -154,14 +154,21 @@ QVector<FileEntry> NTFSPipeClient::scanViaPipe(const QString& rootPath,
     QVector<FileEntry> results;
     if (filters.isEmpty()) return results;
 
-    HANDLE hPipe = CreateFileW(
-        MFO_PIPE_NAME,
-        GENERIC_READ | GENERIC_WRITE,
-        0, nullptr, OPEN_EXISTING, 0, nullptr);
+    // 重试 3 次, 处理 ERROR_PIPE_BUSY (231) 时间窗口
+    HANDLE hPipe = INVALID_HANDLE_VALUE;
+    DWORD lastErr = 0;
+    for (int retry = 0; retry < 3; ++retry) {
+        hPipe = CreateFileW(MFO_PIPE_NAME,
+                            GENERIC_READ | GENERIC_WRITE,
+                            0, nullptr, OPEN_EXISTING, 0, nullptr);
+        if (hPipe != INVALID_HANDLE_VALUE) break;
+        lastErr = GetLastError();
+        if (lastErr != ERROR_PIPE_BUSY) break;  // 非忙错误不重试
+        Sleep(200);
+    }
 
     if (hPipe == INVALID_HANDLE_VALUE) {
-        DWORD err = GetLastError();
-        if (outDiag) *outDiag = QString("管道连接失败 err=%1").arg(err);
+        if (outDiag) *outDiag = QString("管道连接失败 err=%1 (重试3次)").arg(lastErr);
         return results;
     }
 
