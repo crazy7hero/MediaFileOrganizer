@@ -830,16 +830,40 @@ void FileCopierWindow::startMetadataExtraction()
     const int BATCH = 200;
 
     const int totalBatches = (total + BATCH - 1) / BATCH;
-    auto processed = std::make_shared<int>(0);
-    auto completed = std::make_shared<std::atomic<int>>(0);
+    auto processed  = std::make_shared<int>(0);
+    auto completed  = std::make_shared<std::atomic<int>>(0);
+    auto lastDone   = std::make_shared<int>(0);
+    auto stallCount = std::make_shared<int>(0);
 
-    // 全部批次一次性提交到线程池, 池自己控制并发数
+    // 看门狗: 每 5 秒检查, 连续 6 次(30秒)无进展 → 强制结束
+    QTimer* wd = new QTimer(this);
+    connect(wd, &QTimer::timeout, this, [this, completed, lastDone, stallCount, wd, totalBatches, total, processed]() {
+        int cur = completed->load();
+        if (cur == *lastDone) {
+            if (++(*stallCount) >= 6) {
+                wd->stop(); wd->deleteLater();
+                m_extractingMeta = false;
+                updateCopyButtonState();
+                m_scanProgress->setVisible(false);
+                m_scanStatus->setText("");
+                appendLog(QString("元数据提取结束: %1/%2 批 (部分文件阻塞, 已跳过)")
+                              .arg(QLocale().toString(cur))
+                              .arg(QLocale().toString(totalBatches)));
+            }
+        } else {
+            *lastDone = cur;
+            *stallCount = 0;
+        }
+    });
+    wd->start(5000);
+
+    // 全部批次一次性提交到线程池
     for (int i = 0; i < total; i += BATCH) {
         QStringList batch = allPaths.mid(i, BATCH);
         int bs = batch.size();
-        m_pool->enqueue([this, batch, bs, processed, completed, total, totalBatches]() {
+        m_pool->enqueue([this, batch, bs, processed, completed, wd, total, totalBatches]() {
             QVector<MediaMetadata> res = extractMetadata(batch);
-            QMetaObject::invokeMethod(this, [this, res, bs, processed, completed, total, totalBatches]() {
+            QMetaObject::invokeMethod(this, [this, res, bs, processed, completed, wd, total, totalBatches]() {
                 m_model->setMetadata(res);
                 for (const auto& md : res) {
                     if (!md.isValid && md.fileSize > 0)
@@ -853,6 +877,7 @@ void FileCopierWindow::startMetadataExtraction()
                                           .arg(QLocale().toString(total)));
 
                 if (done >= totalBatches) {
+                    wd->stop(); wd->deleteLater();
                     m_extractingMeta = false;
                     updateCopyButtonState();
                     m_scanProgress->setVisible(false);
