@@ -160,7 +160,8 @@ QVector<FileEntry> NTFSPipeClient::scanViaPipe(const QString& rootPath,
         0, nullptr, OPEN_EXISTING, 0, nullptr);
 
     if (hPipe == INVALID_HANDLE_VALUE) {
-        if (outDiag) *outDiag = "管道连接失败 (服务未运行?)";
+        DWORD err = GetLastError();
+        if (outDiag) *outDiag = QString("管道连接失败 err=%1").arg(err);
         return results;
     }
 
