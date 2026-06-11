@@ -829,63 +829,41 @@ void FileCopierWindow::startMetadataExtraction()
     const int total = allPaths.size();
     const int BATCH = 200;
 
-    auto processed     = std::make_shared<int>(0);
-    auto lastProcessed = std::make_shared<int>(0);
-
-    // ═══ 看门狗: 30 秒无进度 → 强制结束 ═══
-    QTimer* wd = new QTimer(this);
-    connect(wd, &QTimer::timeout, this, [this, processed, lastProcessed, wd, total]() {
-        if (*processed == *lastProcessed && *processed < total) {
-            wd->stop(); wd->deleteLater();
-            m_extractingMeta = false;
-            updateCopyButtonState();
-            m_scanProgress->setVisible(false);
-            m_scanStatus->setText("");
-            appendLog(QString("元数据提取结束: %1/%2 (剩余批次超时跳过)")
-                          .arg(QLocale().toString(*processed))
-                          .arg(QLocale().toString(total)));
-        }
-        *lastProcessed = *processed;
-    });
-    wd->start(5000);
-
-    // ═══ 并行提交所有批次到线程池 ═══
-    for (int i = 0; i < total; i += BATCH) {
-        QStringList batch = allPaths.mid(i, BATCH);
-        int batchSize = batch.size();
-
-        m_pool->enqueue([this, batch, batchSize, processed, total, wd]() {
+    // ═══ 单任务顺序处理, 限 CPU 单核, for 结束 = 可靠完成 ═══
+    m_pool->enqueue([this, allPaths, total]() {
+        int processed = 0;
+        for (int i = 0; i < total; i += BATCH) {
+            QStringList batch = allPaths.mid(i, BATCH);
             QVector<MediaMetadata> results = extractMetadata(batch);
+            processed += batch.size();
 
-            QMetaObject::invokeMethod(this, [this, results, batchSize, processed, total, wd]() {
+            QMetaObject::invokeMethod(this, [this, results, processed, total]() {
                 m_model->setMetadata(results);
                 for (const auto& md : results) {
                     if (!md.isValid && md.fileSize > 0)
                         appendLog(QString("  无法解析: %1")
                                       .arg(QFileInfo(md.filePath).fileName()));
                 }
-                *processed += batchSize;
-
                 m_scanStatus->setText(QString("元数据: %1 / %2")
-                                          .arg(QLocale().toString(*processed))
+                                          .arg(QLocale().toString(processed))
                                           .arg(QLocale().toString(total)));
-
-                if (*processed >= total) {
-                    wd->stop(); wd->deleteLater();
-                    m_extractingMeta = false;
-                    updateCopyButtonState();
-                    m_scanProgress->setVisible(false);
-                    m_scanStatus->setText("");
-                    int has = 0;
-                    for (int r = 0; r < m_model->fileCount(); ++r)
-                        if (m_model->hasMetadata(m_model->filePathAt(r))) ++has;
-                    appendLog(QString("元数据完成: %1/%2 个文件 (可解析)")
-                                  .arg(QLocale().toString(has))
-                                  .arg(QLocale().toString(total)));
-                }
             }, Qt::QueuedConnection);
-        });
-    }
+        }
+
+        // for 循环自然结束 → 可靠完成
+        QMetaObject::invokeMethod(this, [this, total]() {
+            m_extractingMeta = false;
+            updateCopyButtonState();
+            m_scanProgress->setVisible(false);
+            m_scanStatus->setText("");
+            int has = 0;
+            for (int r = 0; r < m_model->fileCount(); ++r)
+                if (m_model->hasMetadata(m_model->filePathAt(r))) ++has;
+            appendLog(QString("元数据完成: %1/%2 个文件 (可解析)")
+                          .arg(QLocale().toString(has))
+                          .arg(QLocale().toString(total)));
+        }, Qt::QueuedConnection);
+    });
 }
 
 void FileCopierWindow::onMetadataBatch(const QVector<MediaMetadata>& batch)
